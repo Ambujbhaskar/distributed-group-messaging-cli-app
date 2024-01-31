@@ -1,0 +1,11 @@
+{
+  "name": "group-messaging-application",
+  "version": "1.0.0",
+  "description": "Low-level group messaging application using zeroMQ",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Ambuj Bhaskar",
+  "license": "ISC"
+}
