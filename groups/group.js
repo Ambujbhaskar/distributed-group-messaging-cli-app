@@ -7,66 +7,120 @@ const GROUP_INFO = {
   name: "Group1",
   address: "127.0.0.1:3011"
 };
+const USER_ENDPOINT = GROUP_INFO.address;
 const MESSAGE_SERVER_ENDPOINT = "127.0.0.1:3002";
 
 let userList = [];
 let messages = [];
 
-const sock = zmq.socket("sub");
-sock.connect(`tcp://${MESSAGE_SERVER_ENDPOINT}`);
-sock.subscribe(GROUP_INFO.id);
+const serverHandler = zmq.socket("req");
+serverHandler.connect(`tcp://${MESSAGE_SERVER_ENDPOINT}`);
 console.log("Group connected to message server at", MESSAGE_SERVER_ENDPOINT);
 
-function receiveMessage(topic, groupID, userID, userName, userAddress) {
+const userHandler = zmq.socket("rep");
+userHandler.bindSync(`tcp://${USER_ENDPOINT}`);
+console.log("User handler socket (rep) initialized at", USER_ENDPOINT);
+
+const handleUserRequest = (type, groupID, payload) => {
+  const payloadObject = JSON.parse(payload.toString());
   const user = {
-    id: userID?.toString(),
-    name: userName?.toString(),
-    address: userAddress?.toString()
+    id: payloadObject.id,
+    name: payloadObject.name,
+    address: payloadObject.address
   };
 
-  console.group("Received message");
-  console.log("Topic:", topic.toString());
+  console.group("Received request");
+  console.log("Type:", type?.toString());
   console.log("GroupID:", groupID?.toString());
-  console.log("UserID:", user.id);
-  console.log("userName:", user.name);
-  console.log("userAddress:", user.address);
+  console.log("Payload:", payloadObject);
   console.groupEnd();
 
-  const queryType = (topic.toString()).slice(groupID.length + 1, undefined);
-
-  switch (queryType) {
+  switch (type.toString()) {
+    case "GET":
+      userHandler.send(getMessagesFrom(user, payloadObject.timestamp));
+      break;
+    case "SEND":
+      userHandler.send(receiveChatMessage(user, payloadObject.content));
+      break;
     case "JOIN":
-      addUser(user, groupID.toString());
+      userHandler.send(addUser(user));
       break;
     case "LEAVE":
-      removeUser(user, groupID.toString());
+      userHandler.send(removeUser(user));
       break;
     default:
-      console.log("Invalid query type!");
+      console.log("Invalid request type!");
+      userHandler.send("Invalid request type!");
       break;
   };
 };
 
-function addUser(user) {
+userHandler.on("message", handleUserRequest);
+
+function userExists(user) {
   const userIndex = userList.findIndex((existingUser) => existingUser.id === user.id);
+  return userIndex !== -1
+};
+
+function addUser(user) {
   // if user not already present, add 
-  if (userIndex === -1) {
+  if (!userExists(user)) {
     console.log("Adding user", user.name, "to group", GROUP_INFO.name);
-    return userList.push({ ...user });
+    userList.push({ ...user });
+    return "SUCCESS";
   };
   console.log("User already exists!");
   return "User already exists!";
 };
 
-function removeUser(user, groupID) {
-  const userIndex = userList.findIndex((existingUser) => existingUser.id === user.id);
+function removeUser(user) {
   // if user already exists, remove
-  if (userIndex !== -1) {
+  if (userExists(user)) {
     console.log("Removing user", user.name, "from group", GROUP_INFO.name);
-    return userList.splice(userIndex, 1);
+    userList.splice(userIndex, 1);
+    return "SUCCESS";
   };
-  console.log("User does not exist!");
-  return "User does not exist!";
+  console.log("User does not exist in Group!");
+  return "User does not exist in Group!";
 };
 
-sock.on("message", receiveMessage);
+function receiveChatMessage(user, messageContent) {
+  if (!userExists(user)) {
+    console.log("User not in Group");
+    return "User not in Group";
+  };
+  const newMessage = {
+    id: uuidv4(),
+    content: messageContent,
+    sender: user,
+    timestamp: new Date()
+  };
+  messages.push(newMessage);
+  console.group("New chat message");
+  console.log("MessageID:", newMessage.id);
+  console.log("Content:", newMessage.content);
+  console.log("Sender Name:", newMessage.sender.name);
+  console.log("Timestamp:", newMessage.timestamp.toLocaleString());
+  console.groupEnd();
+  return "SUCCESS";
+};
+
+function getMessagesFrom(user, dateTimeString) {
+  if (!userExists(user)) {
+    console.log("User not in Group");
+    return "User not in Group";
+  };
+  let queryResult = [];
+  try {
+    const queryDateTime = new Date(dateTimeString ?? 0);
+    queryResult = JSON.stringify(messages.filter(message => {
+      console.log(message.timestamp.toLocaleString(), queryDateTime.toLocaleString());
+      return ((message?.timestamp).getTime() >= queryDateTime.getTime())
+    }));
+    console.log("Query performed successfully!");
+  } catch (err) {
+    queryResult = "Invalid Timestamp provided";
+    console.log("Invalid Timestamp provided");
+  };
+  return queryResult;
+};
