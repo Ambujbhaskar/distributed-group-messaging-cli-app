@@ -13,69 +13,42 @@ let groupList = [
   }
 ];
 
+// group Reply socket
+const groupHandler = zmq.socket("rep");
+groupHandler.bindSync(`tcp://${GROUP_ENDPOINT}`);
+console.log("Group handler socket (rep) bound to", GROUP_ENDPOINT);
+groupHandler.on("message", (group) => {
+  console.log("JOIN request from group", group.id);
+  const groupIndex = groupList.findIndex((existingGroup) => existingGroup.id === group.id);
+  if (groupIndex === -1) {
+    console.log("SUCCESS: group added to message server list!");
+    groupList.push(group);
+    groupHandler.send("SUCCESS");
+  };
+  console.log("Group already exists!");
+  groupHandler.send("Group already exists!");
+});
+
 // user Reply socket
 const userHandler = zmq.socket("rep");
 userHandler.bindSync(`tcp://${USER_ENDPOINT}`);
 console.log("User handler socket (rep) bound to", USER_ENDPOINT);
 
-// group publish socket
-const groupHandler = zmq.socket("pub");
-groupHandler.bindSync(`tcp://${GROUP_ENDPOINT}`);
-console.log("Group handler socket (pub) bound to", GROUP_ENDPOINT);
-
-const joinGroup = (groupID, userID, userName, userAddress) => {
-  console.log("publishing JOIN request for groupID: ", groupID.toString());
-  groupHandler.send([`${groupID.toString()}/JOIN`, groupID, userID, userName, userAddress]);
-};
-
-const leaveGroup = (groupID, userID, userName, userAddress) => {
-  console.log("publishing LEAVE request for groupID: ", groupID.toString());
-  groupHandler.send([`${groupID.toString()}/LEAVE`, groupID, userID, userName, userAddress]);
-};
-
-const handleUserRequest = async (type, groupID, userID, userName, userAddress) => {
+const handleUserRequest = (payload) => {
+  const payloadObject = JSON.parse(payload.toString())
   const user = {
-    id: userID?.toString(),
-    name: userName?.toString(),
-    address: userAddress?.toString()
+    id: payloadObject.id,
+    name: payloadObject.name,
+    address: payloadObject.address
   };
 
-  console.group("Received request");
-  console.log("Type:", type.toString());
-  console.log("GroupID:", groupID?.toString());
+  console.group("Received request for group list");
   console.log("UserID:", user.id);
   console.log("userName:", user.name);
   console.log("userAddress:", user.address);
   console.groupEnd();
 
-  switch (type.toString()) {
-    case "GET":
-      break;
-    case "JOIN":
-      if (groupList.filter((group) => (groupID?.toString() === group.id)).length === 1) {
-        // id is valid, group exists in the list maintained by the server
-        joinGroup(groupID, userID, userName, userAddress);
-        break;
-      };
-      console.log("GroupID is invalid!");
-      userHandler.send("Invalid groupID!");
-      break;
-    case "LEAVE":
-      if (groupList.filter((group) => (groupID?.toString() === group.id)).length === 1) {
-        // id is valid, group exists in the list maintained by the server
-        leaveGroup(groupID, userID, userName, userAddress);
-        break;
-      };
-      console.log("GroupID is invalid!");
-      userHandler.send("Invalid groupID!");
-      break;
-    default:
-      console.log("Invalid query type!");
-      break;
-  };
+  userHandler.send(JSON.stringify(groupList));
 };
 
 userHandler.on("message", handleUserRequest);
-
-groupHandler.on("message", (message) => console.log(message));
-

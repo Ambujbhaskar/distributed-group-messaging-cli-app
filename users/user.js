@@ -36,12 +36,8 @@ groupHandler.on("message", msg => {
   };
 });
 
-// const serverHandler = zmq.socket("req");
-// serverHandler.connect(`tcp://${MESSAGE_SERVER_ENDPOINT}`);
-// console.log("User connected to Message Server at:", MESSAGE_SERVER_ENDPOINT);
-
-// const sendJoinRequest = (groupID) => {
-//   console.log("sending JOIN request to the message server at: ", MESSAGE_SERVER_ENDPOINT);
-//   serverHandler.send(["JOIN", groupID, ...Object.values(USER_INFO)]);
-// };
-// serverHandler.on("message", (message) => console.log("Received response: ", message.toString()))
+const serverHandler = zmq.socket("req");
+serverHandler.connect(`tcp://${MESSAGE_SERVER_ENDPOINT}`);
+console.log("User connected to message server at:", MESSAGE_SERVER_ENDPOINT);
+serverHandler.send(JSON.stringify(USER_INFO));
+serverHandler.on("message", (message) => console.log("Received response: ", message.toString()))

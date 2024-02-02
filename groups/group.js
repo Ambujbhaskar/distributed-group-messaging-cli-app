@@ -16,6 +16,8 @@ let messages = [];
 const serverHandler = zmq.socket("req");
 serverHandler.connect(`tcp://${MESSAGE_SERVER_ENDPOINT}`);
 console.log("Group connected to message server at", MESSAGE_SERVER_ENDPOINT);
+serverHandler.send(JSON.stringify(GROUP_INFO));
+serverHandler.on("message", msg => console.log(msg.toString()));
 
 const userHandler = zmq.socket("rep");
 userHandler.bindSync(`tcp://${USER_ENDPOINT}`);
