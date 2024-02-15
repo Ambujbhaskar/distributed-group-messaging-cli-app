@@ -9,6 +9,7 @@
   "author": "Ambuj Bhaskar",
   "license": "ISC",
   "dependencies": {
+    "unique-names-generator": "^4.7.1",
     "uuid": "^9.0.1",
     "zeromq": "^5.3.1"
   }
