@@ -1,5 +1,3 @@
-Certainly! Below is a template for a basic documentation structure for your group messaging application based on ZeroMQ. This documentation includes sections for overview, architecture, key components, communication protocols, and usage guidelines.
-
 # Group Messaging Application Documentation
 
 ## Overview
