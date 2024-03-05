@@ -5,7 +5,7 @@ const zmq = require("zeromq");
 const { Worker } = require("worker_threads");
 
 const GROUP_INFO = {
-  id: "669875df-8ab6-42ac-9270-bfa07ee4fbf8",
+  id: uuidv4(),
   name: uniqueNamesGenerator({
     dictionaries: [colors, countries],
     length: 2,
@@ -24,14 +24,16 @@ const serverHandler = zmq.socket("req");
 serverHandler.connect(`tcp://${MESSAGE_SERVER_ENDPOINT}`);
 console.log("Group connected to message server at", MESSAGE_SERVER_ENDPOINT);
 serverHandler.send(JSON.stringify(GROUP_INFO));
-serverHandler.on("message", msg => console.log(msg.toString()));
+serverHandler.on("message", msg => {
+  console.log("Server response:", msg.toString());
+});
 
 const userHandler = zmq.socket("rep");
 userHandler.bindSync(`tcp://${USER_ENDPOINT}`);
 console.log("User handler socket (rep) initialized at", USER_ENDPOINT);
 
 const userRequest = (type, groupID, payload) => {
-  
+
   console.group("Received request");
   console.log("Type:", type.toString());
   console.log("GroupID:", groupID.toString());
@@ -52,17 +54,17 @@ const userRequest = (type, groupID, payload) => {
   worker.on("message", (msg) => {
     console.log("Main Thread", msg);
     if (msg.status === "complete" && msg.payload)
-      userHandler.send(msg.payload);
+      userHandler.send(msg.payload, "GET");
     else if (msg.status === "incomplete") {
       if (msg.type === "add-user") {
         console.log("Adding new user ...");
         userList.push({ ...msg.payload });
-        userHandler.send("SUCCESS");
+        userHandler.send("SUCCESS", "JOIN");
         console.log("User added!");
       } else if (msg.type === "remove-user") {
         console.log("Removing user ...");
         userList.splice(msg.payload, 1);
-        userHandler.send("SUCCESS");
+        userHandler.send("SUCCESS", "LEAVE");
         console.log("User removed!");
       } else if (msg.type === "new-message") {
         console.log("Appending new message ...");
@@ -73,7 +75,7 @@ const userRequest = (type, groupID, payload) => {
         console.log("Sender Name:", msg.payload.sender.name);
         console.log("Timestamp:", msg.payload.timestamp.toLocaleString());
         console.groupEnd();
-        userHandler.send("SUCCESS");
+        userHandler.send("SUCCESS", "SEND");
         console.log("Message saved!");
       };
       console.log("\n\n");

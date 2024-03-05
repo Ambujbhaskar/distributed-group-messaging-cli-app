@@ -1,6 +1,14 @@
 const { parentPort, workerData } = require("worker_threads");
 const { v4: uuidv4 } = require('uuid');
 
+/**
+ * @
+ * 
+ * @param {*} type 
+ * @param {*} groupID 
+ * @param {*} payload 
+ */
+
 const handleUserRequest = (type, groupID, payload) => {
   const payloadObject = payload;
   const user = {
@@ -105,6 +113,13 @@ function getMessagesFrom(user, dateTimeString) {
     });
     return;
   };
+  if (dateTimeString === "") {
+    parentPort.postMessage({
+      status: "complete",
+      payload: JSON.stringify(workerData.messages)
+    });
+    return;
+  };
   let queryResult = [];
   try {
     const queryDateTime = new Date(dateTimeString ?? 0);
@@ -117,7 +132,6 @@ function getMessagesFrom(user, dateTimeString) {
     queryResult = "Invalid Timestamp provided";
     console.log("Invalid Timestamp provided");
   };
-  console.log("PAGAL", queryResult);
   parentPort.postMessage({
     status: "complete",
     payload: JSON.stringify(queryResult)
